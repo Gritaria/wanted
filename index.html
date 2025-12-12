@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de Cartaz de Procurado - Estilo Red Dead</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- HTML2Canvas -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Rye&family=Gutmann&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Fontes */
+        .font-western { font-family: 'Rye', serif; }
+        .font-typewriter { font-family: 'Courier Prime', monospace; }
+
+        /* Impede seleção de texto (evita manchas azuis no download) */
+        .noselect {
+            -webkit-user-select: none; /* Safari */
+            -ms-user-select: none; /* IE 10 and IE 11 */
+            user-select: none; /* Standard syntax */
+        }
+
+        /* Papel estilo RDR */
+        .rdr-paper {
+            background-color: #d3c4a9;
+            background-image: 
+                radial-gradient(circle, transparent 60%, rgba(0,0,0,0.2) 100%),
+                url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.08'/%3E%3C/svg%3E");
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Bordas */
+        .outer-border {
+            border: 1px solid #2f2f2f;
+            position: absolute;
+            top: 12px; left: 12px; right: 12px; bottom: 12px;
+            pointer-events: none;
+            opacity: 0.8;
+            z-index: 20;
+        }
+        .inner-border {
+            border: 1px solid #2f2f2f;
+            position: absolute;
+            top: 16px; left: 16px; right: 16px; bottom: 16px;
+            pointer-events: none;
+            opacity: 0.8;
+            z-index: 20;
+        }
+
+        /* Moldura da Foto */
+        .rdr-photo-frame {
+            background: #000;
+            padding: 6px;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+            width: fit-content;
+            margin: 0 auto;
+        }
+        .rdr-photo-inner {
+            border: 2px solid #d3c4a9;
+            background: #2f2f2f;
+            padding: 2px;
+        }
+        .wanted-photo {
+            width: 310px;
+            height: 310px;
+            object-fit: cover;
+            display: block;
+            background-color: #2f2f2f;
+        }
+
+        /* Elementos Decorativos */
+        .decoration-line {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            margin: 8px 0;
+            color: #2f2f2f;
+        }
+        .line-segment {
+            height: 2px;
+            background-color: #2f2f2f;
+            flex-grow: 1;
+            margin: 0 10px;
+        }
+        .diamond {
+            width: 8px;
+            height: 8px;
+            background-color: #2f2f2f;
+            transform: rotate(45deg);
+        }
+        .star {
+            color: #2f2f2f;
+            font-size: 1.5rem;
+            margin: 0 2px;
+        }
+
+        /* Inputs */
+        .editor-input {
+            background-color: #292524;
+            border: 1px solid #44403c;
+            color: #e7e5e4;
+            transition: all 0.2s;
+        }
+        .editor-input:focus {
+            border-color: #d97706;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.2);
+        }
+    </style>
+</head>
+<body class="bg-stone-900 min-h-screen text-stone-200 font-sans p-4 lg:p-8 flex items-center justify-center">
+
+    <div class="max-w-7xl w-full grid grid-cols-1 lg:grid-cols-12 gap-10">
+        
+        <!-- EDITOR (ESQUERDA) -->
+        <div class="lg:col-span-4 space-y-6">
+            <div class="bg-stone-800 p-6 rounded-xl border border-stone-700 shadow-2xl h-fit">
+                <div class="flex items-center justify-center mb-6">
+                    <h1 class="text-3xl font-western text-amber-500 tracking-widest drop-shadow-md">PROCURADO</h1>
+                </div>
+                
+                <div class="space-y-4">
+                    <!-- Upload -->
+                    <div>
+                        <label class="block text-stone-400 text-xs font-bold mb-2 uppercase tracking-widest">Retrato</label>
+                        <label class="flex flex-col items-center justify-center w-full h-24 border-2 border-stone-600 border-dashed rounded-lg cursor-pointer hover:bg-stone-700/50 transition-colors group">
+                            <div class="flex flex-col items-center justify-center pt-2 text-stone-500 group-hover:text-amber-500 transition-colors">
+                                <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                <span class="text-xs font-bold">CARREGAR FOTO</span>
+                            </div>
+                            <input id="imageUpload" type="file" class="hidden" accept="image/*" />
+                        </label>
+                    </div>
+
+                    <!-- Campos -->
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-stone-500 text-xs font-bold mb-1 uppercase">Crime</label>
+                            <input type="text" id="crimeInput" value="Amar Demais" class="w-full p-2 rounded editor-input font-western tracking-wider text-sm">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-stone-500 text-xs font-bold mb-1 uppercase">Condição</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center space-x-2 cursor-pointer">
+                                    <input type="radio" name="status" value="VIVO OU MORTO" class="text-amber-600 focus:ring-amber-500 bg-stone-700 border-stone-600">
+                                    <span class="text-sm">Vivo ou Morto</span>
+                                </label>
+                                <label class="flex items-center space-x-2 cursor-pointer">
+                                    <input type="radio" name="status" value="APENAS VIVO" checked class="text-amber-600 focus:ring-amber-500 bg-stone-700 border-stone-600">
+                                    <span class="text-sm">Apenas Vivo</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-stone-500 text-xs font-bold mb-1 uppercase">Nome do Fora da Lei</label>
+                            <input type="text" id="nameInput" value="Fulano" class="w-full p-2 rounded editor-input font-western tracking-wider text-lg">
+                        </div>
+
+                        <div>
+                            <label class="block text-stone-500 text-xs font-bold mb-1 uppercase">Nível de Perigo (0-5 Estrelas)</label>
+                            <input type="range" id="dangerInput" min="0" max="5" value="0" class="w-full h-2 bg-stone-700 rounded-lg appearance-none cursor-pointer accent-amber-600">
+                            <div class="flex justify-between text-xs text-stone-500 px-1 mt-1">
+                                <span>Seguro</span>
+                                <span>Perigoso</span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-stone-500 text-xs font-bold mb-1 uppercase">Recompensa ($)</label>
+                            <input type="number" id="rewardInput" value="5" class="w-full p-2 rounded editor-input font-western tracking-wider text-lg" placeholder="Apenas números">
+                        </div>
+
+                        <div>
+                            <label class="block text-stone-500 text-xs font-bold mb-1 uppercase">Descrição / Texto Breve</label>
+                            <textarea id="descInput" rows="2" class="w-full p-2 rounded editor-input font-typewriter text-sm" placeholder="Ex: Visto pela última vez perto do Rio Bravo...">Procurado por abraços não solicitados.</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <button id="downloadBtn" class="mt-6 w-full bg-gradient-to-r from-amber-700 to-amber-800 hover:from-amber-600 hover:to-amber-700 text-white font-western py-3 rounded shadow-lg transform active:scale-[0.98] transition-all text-xl tracking-widest border border-amber-900">
+                    BAIXAR CARTAZ
+                </button>
+            </div>
+        </div>
+
+        <!-- PREVIEW (DIREITA) -->
+        <div class="lg:col-span-8 flex justify-center items-center bg-stone-950/50 rounded-xl border border-stone-800 p-8 backdrop-blur-sm">
+            
+            <!-- CARTAZ FINAL (Adicionado 'noselect' para impedir seleção azul) -->
+            <div id="posterContainer" class="noselect relative w-[500px] h-[780px] shadow-[0_0_50px_rgba(0,0,0,0.5)] shrink-0 bg-[#d3c4a9]">
+                
+                <!-- Fundo de Papel -->
+                <div class="rdr-paper w-full h-full flex flex-col items-center py-6 px-8 text-[#1a1a1a]">
+                    
+                    <!-- Bordas Decorativas -->
+                    <div class="outer-border"></div>
+                    <div class="inner-border"></div>
+
+                    <!-- Cabeçalho -->
+                    <div class="z-10 w-full text-center mt-3">
+                        <!-- Título com margem inferior maior (mb-2) para não encostar no status -->
+                        <h1 class="font-western text-[64px] leading-none tracking-normal scale-y-110 mb-3" style="text-shadow: 1px 1px 0 rgba(0,0,0,0.1);">PROCURADO</h1>
+                        
+                        <!-- Status com margem superior clara -->
+                        <h2 id="displayStatus" class="font-western text-lg uppercase tracking-[0.2em] font-bold text-[#2f2f2f]">APENAS VIVO</h2>
+
+                        <!-- Linha Decorativa Superior (mais espaçada) -->
+                        <div class="decoration-line px-4 mt-3 mb-2">
+                            <div class="diamond"></div>
+                            <div class="line-segment"></div>
+                            <div class="diamond"></div>
+                        </div>
+
+                        <!-- Crime -->
+                        <h2 id="displayCrime" class="font-western text-2xl uppercase tracking-widest font-bold text-[#2f2f2f]">AMAR DEMAIS</h2>
+                    </div>
+
+                    <!-- Foto -->
+                    <div class="z-10 my-4 flex-shrink-0">
+                        <div class="rdr-photo-frame">
+                            <div class="rdr-photo-inner">
+                                <!-- Imagem com fallback -->
+                                <img id="displayImage" src="" class="wanted-photo hidden" alt="Foto">
+                                <div id="placeholder" class="wanted-photo flex items-center justify-center bg-[#2f2f2f]">
+                                    <span class="text-[#d3c4a9] opacity-20 font-western text-6xl">?</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Rodapé / Nome -->
+                    <div class="z-10 w-full text-center flex-grow flex flex-col justify-start pb-2">
+                        <h2 id="displayName" class="font-western text-[40px] uppercase tracking-wide leading-tight text-[#1a1a1a] drop-shadow-sm mb-1">FULANO</h2>
+                        
+                        <!-- Estrelas de Perigo -->
+                        <div id="displayStars" class="flex justify-center my-1 text-[#2f2f2f] min-h-[1.5rem]">
+                            <!-- Estrelas inseridas via JS -->
+                        </div>
+
+                        <!-- Texto Descritivo -->
+                        <p id="displayDesc" class="font-typewriter text-sm font-bold uppercase leading-tight max-w-[90%] mx-auto text-[#2f2f2f] min-h-[3em] flex items-center justify-center px-2">
+                            Procurado por abraços não solicitados.
+                        </p>
+                        
+                        <!-- Linha Decorativa Inferior (Empurra o conteúdo para baixo) -->
+                        <div class="w-full border-t-2 border-[#2f2f2f] border-double mt-auto mb-3 mx-auto w-[90%]"></div>
+                        
+                        <!-- Recompensa -->
+                        <div class="flex flex-col items-center mb-2">
+                            <h3 class="font-western text-xl uppercase tracking-widest">RECOMPENSA <span id="displayReward" class="text-3xl ml-2 font-bold">$5</span></h3>
+                        </div>
+                    </div>
+
+                    <!-- Pequenos losangos nos cantos inferiores -->
+                    <div class="absolute bottom-5 left-5 diamond"></div>
+                    <div class="absolute bottom-5 right-5 diamond"></div>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // --- Elementos ---
+        const crimeInput = document.getElementById('crimeInput');
+        const nameInput = document.getElementById('nameInput');
+        const rewardInput = document.getElementById('rewardInput');
+        const descInput = document.getElementById('descInput');
+        const dangerInput = document.getElementById('dangerInput');
+        const statusInputs = document.querySelectorAll('input[name="status"]');
+        const imageInput = document.getElementById('imageUpload');
+
+        const displayCrime = document.getElementById('displayCrime');
+        const displayName = document.getElementById('displayName');
+        const displayReward = document.getElementById('displayReward');
+        const displayDesc = document.getElementById('displayDesc');
+        const displayStars = document.getElementById('displayStars');
+        const displayStatus = document.getElementById('displayStatus');
+        const displayImage = document.getElementById('displayImage');
+        const placeholder = document.getElementById('placeholder');
+
+        // --- Funções de Atualização ---
+
+        function updateText(input, display) {
+            display.innerText = input.value;
+        }
+
+        function updateReward() {
+            const val = parseFloat(rewardInput.value);
+            if (!isNaN(val)) {
+                displayReward.innerText = '$' + val.toLocaleString('en-US'); 
+            } else {
+                displayReward.innerText = '$0';
+            }
+        }
+
+        function updateStars() {
+            const count = parseInt(dangerInput.value);
+            displayStars.innerHTML = '';
+            if(count === 0) return;
+            for(let i=0; i<count; i++) {
+                const star = document.createElement('span');
+                star.className = 'star';
+                star.innerHTML = '★'; 
+                displayStars.appendChild(star);
+            }
+        }
+
+        function updateStatus() {
+            const selected = document.querySelector('input[name="status"]:checked').value;
+            displayStatus.innerText = selected;
+        }
+
+        // --- Processamento de Imagem (Preto e Branco Puro) ---
+        function processImage(file) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx.drawImage(img, 0, 0);
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const data = imageData.data;
+                    for (let i = 0; i < data.length; i += 4) {
+                        const r = data[i];
+                        const g = data[i + 1];
+                        const b = data[i + 2];
+                        let avg = 0.3 * r + 0.59 * g + 0.11 * b;
+                        avg = (avg - 128) * 1.2 + 128; 
+                        avg = Math.max(0, Math.min(255, avg)); 
+                        data[i] = avg;     
+                        data[i + 1] = avg; 
+                        data[i + 2] = avg; 
+                    }
+                    ctx.putImageData(imageData, 0, 0);
+                    displayImage.src = canvas.toDataURL();
+                    displayImage.classList.remove('hidden');
+                    placeholder.classList.add('hidden');
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // --- Event Listeners ---
+        crimeInput.addEventListener('input', () => updateText(crimeInput, displayCrime));
+        nameInput.addEventListener('input', () => updateText(nameInput, displayName));
+        descInput.addEventListener('input', () => updateText(descInput, displayDesc));
+        rewardInput.addEventListener('input', updateReward);
+        dangerInput.addEventListener('input', updateStars);
+        statusInputs.forEach(radio => radio.addEventListener('change', updateStatus));
+
+        imageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                processImage(file);
+            }
+        });
+
+        // --- Inicialização ---
+        updateReward();
+        updateStars();
+        updateStatus();
+
+        // --- Download ---
+        document.getElementById('downloadBtn').addEventListener('click', () => {
+            const btn = document.getElementById('downloadBtn');
+            const poster = document.getElementById('posterContainer');
+            
+            // 1. Remove qualquer seleção de texto do usuário (evita manchas azuis)
+            if (window.getSelection) {
+                window.getSelection().removeAllRanges();
+            }
+
+            const originalText = btn.innerHTML;
+            btn.innerHTML = "Gerando Imagem...";
+            btn.disabled = true;
+
+            html2canvas(poster, {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: null,
+                logging: false,
+                allowTaint: true
+            }).then(canvas => {
+                const link = document.createElement('a');
+                
+                // Gerar nome do arquivo dinâmico
+                const nameValue = nameInput.value.trim().toLowerCase().replace(/\s+/g, '-');
+                // Se estiver vazio, usa o padrão, senão usa o nome formatado
+                const filename = nameValue ? `procurado-${nameValue}.png` : 'cartaz_procurado.png';
+                
+                link.download = filename;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }).catch(err => {
+                console.error(err);
+                alert("Erro ao gerar imagem. Tente uma foto diferente.");
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            });
+        });
+    </script>
+</body>
+</html>
