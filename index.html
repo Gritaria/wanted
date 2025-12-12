@@ -67,7 +67,7 @@
         .wanted-photo {
             width: 310px;
             height: 310px;
-            object-fit: cover;
+            /* object-fit: cover removido pois o corte é feito via JS agora para evitar distorção no download */
             display: block;
             background-color: #2f2f2f;
         }
@@ -193,7 +193,7 @@
         <!-- PREVIEW (DIREITA) -->
         <div class="lg:col-span-8 flex justify-center items-center bg-stone-950/50 rounded-xl border border-stone-800 p-8 backdrop-blur-sm">
             
-            <!-- CARTAZ FINAL (Adicionado 'noselect' para impedir seleção azul) -->
+            <!-- CARTAZ FINAL -->
             <div id="posterContainer" class="noselect relative w-[500px] h-[780px] shadow-[0_0_50px_rgba(0,0,0,0.5)] shrink-0 bg-[#d3c4a9]">
                 
                 <!-- Fundo de Papel -->
@@ -205,20 +205,16 @@
 
                     <!-- Cabeçalho -->
                     <div class="z-10 w-full text-center mt-3">
-                        <!-- Título com margem inferior maior (mb-2) para não encostar no status -->
                         <h1 class="font-western text-[64px] leading-none tracking-normal scale-y-110 mb-3" style="text-shadow: 1px 1px 0 rgba(0,0,0,0.1);">PROCURADO</h1>
                         
-                        <!-- Status com margem superior clara -->
                         <h2 id="displayStatus" class="font-western text-lg uppercase tracking-[0.2em] font-bold text-[#2f2f2f]">APENAS VIVO</h2>
 
-                        <!-- Linha Decorativa Superior (mais espaçada) -->
                         <div class="decoration-line px-4 mt-3 mb-2">
                             <div class="diamond"></div>
                             <div class="line-segment"></div>
                             <div class="diamond"></div>
                         </div>
 
-                        <!-- Crime -->
                         <h2 id="displayCrime" class="font-western text-2xl uppercase tracking-widest font-bold text-[#2f2f2f]">AMAR DEMAIS</h2>
                     </div>
 
@@ -226,7 +222,6 @@
                     <div class="z-10 my-4 flex-shrink-0">
                         <div class="rdr-photo-frame">
                             <div class="rdr-photo-inner">
-                                <!-- Imagem com fallback -->
                                 <img id="displayImage" src="" class="wanted-photo hidden" alt="Foto">
                                 <div id="placeholder" class="wanted-photo flex items-center justify-center bg-[#2f2f2f]">
                                     <span class="text-[#d3c4a9] opacity-20 font-western text-6xl">?</span>
@@ -239,26 +234,19 @@
                     <div class="z-10 w-full text-center flex-grow flex flex-col justify-start pb-2">
                         <h2 id="displayName" class="font-western text-[40px] uppercase tracking-wide leading-tight text-[#1a1a1a] drop-shadow-sm mb-1">FULANO</h2>
                         
-                        <!-- Estrelas de Perigo -->
-                        <div id="displayStars" class="flex justify-center my-1 text-[#2f2f2f] min-h-[1.5rem]">
-                            <!-- Estrelas inseridas via JS -->
-                        </div>
+                        <div id="displayStars" class="flex justify-center my-1 text-[#2f2f2f] min-h-[1.5rem]"></div>
 
-                        <!-- Texto Descritivo -->
                         <p id="displayDesc" class="font-typewriter text-sm font-bold uppercase leading-tight max-w-[90%] mx-auto text-[#2f2f2f] min-h-[3em] flex items-center justify-center px-2">
                             Procurado por abraços não solicitados.
                         </p>
                         
-                        <!-- Linha Decorativa Inferior (Empurra o conteúdo para baixo) -->
                         <div class="w-full border-t-2 border-[#2f2f2f] border-double mt-auto mb-3 mx-auto w-[90%]"></div>
                         
-                        <!-- Recompensa -->
                         <div class="flex flex-col items-center mb-2">
                             <h3 class="font-western text-xl uppercase tracking-widest">RECOMPENSA <span id="displayReward" class="text-3xl ml-2 font-bold">$5</span></h3>
                         </div>
                     </div>
 
-                    <!-- Pequenos losangos nos cantos inferiores -->
                     <div class="absolute bottom-5 left-5 diamond"></div>
                     <div class="absolute bottom-5 right-5 diamond"></div>
 
@@ -319,7 +307,7 @@
             displayStatus.innerText = selected;
         }
 
-        // --- Processamento de Imagem (Preto e Branco Puro) ---
+        // --- Processamento de Imagem (Corte Quadrado + Preto e Branco) ---
         function processImage(file) {
             const reader = new FileReader();
             reader.onload = (event) => {
@@ -327,9 +315,20 @@
                 img.onload = () => {
                     const canvas = document.createElement('canvas');
                     const ctx = canvas.getContext('2d');
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    ctx.drawImage(img, 0, 0);
+                    
+                    // 1. Calcular Corte Quadrado (Centralizado)
+                    const side = Math.min(img.width, img.height);
+                    const startX = (img.width - side) / 2;
+                    const startY = (img.height - side) / 2;
+
+                    // 2. Definir canvas quadrado
+                    canvas.width = side;
+                    canvas.height = side;
+
+                    // 3. Desenhar imagem cortada (Source: startX/Y, Dest: 0,0)
+                    ctx.drawImage(img, startX, startY, side, side, 0, 0, side, side);
+
+                    // 4. Aplicar Filtro Preto e Branco
                     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                     const data = imageData.data;
                     for (let i = 0; i < data.length; i += 4) {
@@ -344,6 +343,7 @@
                         data[i + 2] = avg; 
                     }
                     ctx.putImageData(imageData, 0, 0);
+                    
                     displayImage.src = canvas.toDataURL();
                     displayImage.classList.remove('hidden');
                     placeholder.classList.add('hidden');
@@ -378,7 +378,6 @@
             const btn = document.getElementById('downloadBtn');
             const poster = document.getElementById('posterContainer');
             
-            // 1. Remove qualquer seleção de texto do usuário (evita manchas azuis)
             if (window.getSelection) {
                 window.getSelection().removeAllRanges();
             }
@@ -387,8 +386,12 @@
             btn.innerHTML = "Gerando Imagem...";
             btn.disabled = true;
 
+            // Configuração Fixa para Evitar Distorção
             html2canvas(poster, {
-                scale: 2,
+                scale: 3, // Alta resolução
+                width: 500, // Largura fixa do cartaz
+                height: 780, // Altura fixa do cartaz
+                windowWidth: 1400, // Simula desktop para evitar distorção mobile
                 useCORS: true,
                 backgroundColor: null,
                 logging: false,
@@ -396,9 +399,7 @@
             }).then(canvas => {
                 const link = document.createElement('a');
                 
-                // Gerar nome do arquivo dinâmico
                 const nameValue = nameInput.value.trim().toLowerCase().replace(/\s+/g, '-');
-                // Se estiver vazio, usa o padrão, senão usa o nome formatado
                 const filename = nameValue ? `procurado-${nameValue}.png` : 'cartaz_procurado.png';
                 
                 link.download = filename;
